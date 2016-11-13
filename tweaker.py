@@ -1,6 +1,6 @@
 from lxml import html
 import requests
-import io
+#import io
 
 page = requests.get('https://en.wikipedia.org/wiki/United_States_presidential_election,_2000')
 tree = html.fromstring(page.content)
