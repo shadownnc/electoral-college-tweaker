@@ -45,8 +45,7 @@ def build_candidate_index_from_state_table(state_table):
             candidate_index.append({
                 "name": value.strip(),
                 "party": None,
-                "winnerTakeAllVotes": 0,
-                "proportionedVotes": 0
+                "electoralVotes": {}
             })
         elif candidate_record["party"] is None:
             candidate_record["party"] = value.strip()
