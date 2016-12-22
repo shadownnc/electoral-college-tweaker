@@ -45,7 +45,12 @@ def build_candidate_index_from_state_table(state_table):
             candidate_index.append({
                 "name": value.strip(),
                 "party": None,
-                "electoralVotes": {}
+                "votes": {
+                    "popular": {
+                        "count": 0,
+                        "percentage": 0
+                    }
+                }
             })
         elif candidate_record["party"] is None:
             candidate_record["party"] = value.strip()
@@ -60,7 +65,10 @@ def build_state_data_from_state_row(state_row, candidate_index):
     state_name = firstOrNone(state_cells[0].xpath('.//a/text()'))
 
     if not state_name:
-        return None
+        if state_cells[0].text == "TOTALS:":
+            state_name = "Total"
+        else:
+            return None
 
     electoral_votes = state_cells[1].text
 
@@ -98,6 +106,16 @@ def build_state_data_from_state_row(state_row, candidate_index):
     return state_data
 
 
+def set_national_popular_vote(candidate_index, total_data):
+    for candidate in candidate_index:
+        candidate_name = candidate["name"]
+        if candidate_name in total_data["candidateData"]:
+            candidate["votes"]["popular"]["count"] = int(
+                total_data["candidateData"][candidate_name]["popularVoteTotal"])
+            candidate["votes"]["popular"]["percentage"] = float(
+                total_data["candidateData"][candidate_name]["popularVotePercentage"])
+
+
 def build_voting_data_from_state_table(state_table, candidate_index):
     voting_data = {
         "candidates": candidate_index,
@@ -109,7 +127,10 @@ def build_voting_data_from_state_table(state_table, candidate_index):
         state_data = build_state_data_from_state_row(row, candidate_index)
 
         if state_data:
-            voting_data["stateResults"].append(state_data)
+            if state_data["name"] == "Total":
+                set_national_popular_vote(candidate_index, state_data)
+            else:
+                voting_data["stateResults"].append(state_data)
 
     return voting_data
 
