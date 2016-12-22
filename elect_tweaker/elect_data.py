@@ -22,6 +22,11 @@ def get_state_table_from_html(html):
             state_table = table
             break
 
+        state_header = table.xpath('.//th[starts-with(text(),"State or")]')
+        if state_header:
+            state_table = table
+            break
+
     if state_table is None:
         raise ImportError
 
@@ -58,6 +63,20 @@ def build_candidate_index_from_state_table(state_table):
     return candidate_index
 
 
+def parse_int(text):
+    if text is None:
+        return 0
+
+    return int(text.replace("–", "0").replace("-", "0").replace(",", ""))
+
+
+def parse_percentage(text):
+    if text is None:
+        return 0
+
+    return float(text.replace("–", "0").strip('%')) / 100
+
+
 def build_state_data_from_state_row(state_row, candidate_index):
     state_cells = state_row.getchildren()
 
@@ -65,16 +84,24 @@ def build_state_data_from_state_row(state_row, candidate_index):
     state_name = firstOrNone(state_cells[0].xpath('.//a/text()'))
 
     if not state_name:
-        if state_cells[0].text == "TOTALS:":
+        if state_cells[len(state_cells) - 1].text == "US" or state_cells[len(state_cells) - 2].text == "US":
             state_name = "Total"
         else:
             return None
 
-    electoral_votes = state_cells[1].text
+    total_electoral_votes = state_cells[1].text
+    must_calculate_total = False
+
+    if total_electoral_votes == "CD":
+        return "CD"
+
+    if total_electoral_votes == "WTA":
+        total_electoral_votes = 0
+        must_calculate_total = True
 
     state_data = {
         "name": state_name,
-        "electoralVotes": electoral_votes,
+        "electoralVotes": 0,
         "topCandidate": None,
         "candidateData": {}
     }
@@ -88,9 +115,15 @@ def build_state_data_from_state_row(state_row, candidate_index):
         # each candidate spans 3 columns
         vote_total_text = state_cells[3 * i + 2].text
         vote_percentage_text = state_cells[3 * i + 3].text
+        electoral_vote_total_text = state_cells[3 * i + 4].text
 
-        vote_total = vote_total_text.replace("–", "0").replace(",", "")
-        percentage = float(vote_percentage_text.replace("–", "0").strip('%')) / 100
+        if must_calculate_total:
+            total_electoral_votes += parse_int(electoral_vote_total_text)
+
+        #print("{}\t{}\t{}\t{}".format(state_name, candidate_name, vote_total_text, vote_percentage_text))
+
+        vote_total = parse_int(vote_total_text)
+        percentage = parse_percentage(vote_percentage_text)
         if percentage > top_percentage:
             top_candidate = candidate_name
             top_percentage = percentage
@@ -102,6 +135,7 @@ def build_state_data_from_state_row(state_row, candidate_index):
         state_data["candidateData"][candidate_name] = candidate_data
 
     state_data["topCandidate"] = top_candidate
+    state_data["electoralVotes"] = total_electoral_votes
 
     return state_data
 
@@ -118,20 +152,26 @@ def set_national_popular_vote(candidate_index, total_data):
 
 def build_voting_data_from_state_table(state_table, candidate_index):
     voting_data = {
-        "candidates": candidate_index,
-        "stateResults": []
+        "candidates": candidate_index
     }
+    state_results = []
     state_rows = state_table.getchildren()
 
     for row in state_rows:
         state_data = build_state_data_from_state_row(row, candidate_index)
 
-        if state_data:
-            if state_data["name"] == "Total":
-                set_national_popular_vote(candidate_index, state_data)
-            else:
-                voting_data["stateResults"].append(state_data)
+        if not state_data:
+            continue
 
+        if state_data == "CD":
+            # if it is the results for a congressional district, it counts as one more elector for the state
+            state_results[len(state_results) - 1]["electoralVotes"] += 1
+        elif state_data["name"] == "Total":
+            set_national_popular_vote(candidate_index, state_data)
+        else:
+            state_results.append(state_data)
+
+    voting_data["stateResults"] = state_results
     return voting_data
 
 
