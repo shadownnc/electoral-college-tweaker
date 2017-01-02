@@ -77,11 +77,13 @@ def parse_percentage(text):
     return float(text.replace("–", "0").strip('%')) / 100
 
 
-def build_state_data_from_state_row(state_row, candidate_index):
+def build_state_data_from_state_row(state_row, candidate_index, prev_state_name):
     state_cells = state_row.getchildren()
 
     # the state name will be in a link
     state_name = firstOrNone(state_cells[0].xpath('.//a/text()'))
+
+    #print(state_name)
 
     if not state_name:
         if state_cells[len(state_cells) - 1].text == "US" or state_cells[len(state_cells) - 2].text == "US":
@@ -92,10 +94,10 @@ def build_state_data_from_state_row(state_row, candidate_index):
     total_electoral_votes = state_cells[1].text
     must_calculate_total = False
 
-    if total_electoral_votes == "CD":
+    if total_electoral_votes == "CD" and prev_state_name in state_name:
         return "CD"
 
-    if total_electoral_votes == "WTA":
+    if total_electoral_votes == "WTA" or total_electoral_votes == "CD":
         total_electoral_votes = 0
         must_calculate_total = True
 
@@ -156,20 +158,24 @@ def build_voting_data_from_state_table(state_table, candidate_index):
     }
     state_results = []
     state_rows = state_table.getchildren()
+    prev_state_data = None
 
     for row in state_rows:
-        state_data = build_state_data_from_state_row(row, candidate_index)
+        state_data = build_state_data_from_state_row(row, candidate_index,
+                                                     prev_state_data["name"] if prev_state_data else None)
 
         if not state_data:
+            prev_state_data = None
             continue
 
         if state_data == "CD":
             # if it is the results for a congressional district, it counts as one more elector for the state
-            state_results[len(state_results) - 1]["electoralVotes"] += 1
+            prev_state_data["electoralVotes"] += 1
         elif state_data["name"] == "Total":
             set_national_popular_vote(candidate_index, state_data)
         else:
             state_results.append(state_data)
+            prev_state_data = state_data
 
     voting_data["stateResults"] = state_results
     return voting_data
