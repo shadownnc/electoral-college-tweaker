@@ -33,12 +33,12 @@ def get_state_table_from_html(html):
     return state_table
 
 
-def firstOrNone(result):
-    return result[0] if result and len(result) > 0 else None
-
-
 def build_candidate_index_from_state_table(state_table):
     candidate_cells = state_table.xpath('.//th[@colspan=3]/text()')
+
+    if len(candidate_cells) == 0:
+        candidate_cells = state_table.xpath('.//td[@colspan=3]/text()')
+
     candidate_index = []
 
     for value in candidate_cells:
@@ -63,6 +63,10 @@ def build_candidate_index_from_state_table(state_table):
     return candidate_index
 
 
+def first_or_none(result):
+    return result[0] if result and len(result) > 0 else None
+
+
 def parse_int(text):
     if text is None:
         return 0
@@ -81,7 +85,7 @@ def build_state_data_from_state_row(state_row, candidate_index, prev_state_name)
     state_cells = state_row.getchildren()
 
     # the state name will be in a link
-    state_name = firstOrNone(state_cells[0].xpath('.//a/text()'))
+    state_name = first_or_none(state_cells[0].xpath('.//a/text()'))
 
     #print(state_name)
 
@@ -157,7 +161,7 @@ def build_voting_data_from_state_table(state_table, candidate_index):
         "candidates": candidate_index
     }
     state_results = []
-    state_rows = state_table.getchildren()
+    state_rows = state_table.xpath('.//tr')
     prev_state_data = None
 
     for row in state_rows:
@@ -188,6 +192,35 @@ def convert_wiki_to_json_data(path):
         html_tree = get_html_from_file(path)
 
     state_table = get_state_table_from_html(html_tree)
+    candidate_index = build_candidate_index_from_state_table(state_table)
+    voting_data = build_voting_data_from_state_table(state_table, candidate_index)
+
+    return voting_data
+
+
+def convert_adjusted_table_to_json_data(path):
+    """
+    Some Wikipedia election result tables have inconsistencies with
+    the rest. In these situations, I copy the table to Google Sheets,
+    make it conform to the standard, and download it as an adjusted
+    HTML file.
+
+    This unfortunately adds row numbers to every row, so those need to
+    be stripped out before it can be properly processed.
+    """
+    html_tree = get_html_from_file(path)
+
+    state_table = first_or_none(html_tree.xpath('//table'))
+
+    if state_table is None:
+        return None
+
+    # strip out the first column of every row, which is a superfluous row number
+    rows = state_table.xpath('.//tr')
+    for row in rows:
+        cells = row.getchildren()
+        row.remove(cells[0])
+
     candidate_index = build_candidate_index_from_state_table(state_table)
     voting_data = build_voting_data_from_state_table(state_table, candidate_index)
 
