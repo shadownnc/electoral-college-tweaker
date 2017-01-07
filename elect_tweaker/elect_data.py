@@ -15,15 +15,18 @@ def get_html_from_file(path):
 def get_state_table_from_html(html):
     tables = html.xpath('//table[@class="wikitable sortable"]')
 
+    if len(tables) == 0:
+        tables = html.xpath('//table[@class="wikitable"]')
+
     state_table = None
     for table in tables:
-        state_header = table.xpath('.//th[text()="State"]')
-        if state_header:
+        state_header = first_or_none(table.xpath('.//th[text()="State"]'))
+        if state_header is not None:
             state_table = table
             break
 
-        state_header = table.xpath('.//th[starts-with(text(),"State or")]')
-        if state_header:
+        state_header = first_or_none(table.xpath('.//th[starts-with(text(),"State or")]'))
+        if state_header is not None:
             state_table = table
             break
 
@@ -38,6 +41,8 @@ def build_candidate_index_from_state_table(state_table):
 
     if len(candidate_cells) == 0:
         candidate_cells = state_table.xpath('.//td[@colspan=3]/text()')
+
+    candidate_cells = filter(lambda a: a != '\n', candidate_cells)
 
     candidate_index = []
 
@@ -71,6 +76,9 @@ def parse_int(text):
     if text is None:
         return 0
 
+    if len(text.strip()) == 0:
+        return 0
+
     return int(text.replace("–", "0").replace("-", "0").replace(",", ""))
 
 
@@ -78,22 +86,40 @@ def parse_percentage(text):
     if text is None:
         return 0
 
-    return float(text.replace("–", "0").strip('%')) / 100
+    if len(text.strip()) == 0:
+        return 0
+
+    return float(text.replace("–", "0").replace("-", "0").strip('%')) / 100
+
+
+def get_colspan(element):
+    colspan = first_or_none(element.xpath('.//@colspan'))
+    return 1 if not colspan else int(colspan)
 
 
 def build_state_data_from_state_row(state_row, candidate_index, prev_state_name):
     state_cells = state_row.getchildren()
 
-    # the state name will be in a link
+    if len(state_cells) == 1 or get_colspan(state_cells[0]) > 1:
+        # this is a preliminary header that can be skipped
+        return None
+
+    # the state name might be in a link
     state_name = first_or_none(state_cells[0].xpath('.//a/text()'))
 
-    #print(state_name)
-
+    # otherwise check the text
     if not state_name:
-        if state_cells[len(state_cells) - 1].text == "US" or state_cells[len(state_cells) - 2].text == "US":
-            state_name = "Total"
-        else:
-            return None
+        state_name = state_cells[0].text
+
+    # if we didn't find anything, or it's the header, skip this row
+    if not state_name or state_name == "State":
+        return None
+
+    # normalize "Total" if we find it
+    if state_name.lower().startswith("total"):
+        state_name = "Total"
+
+    #print(state_name)
 
     total_electoral_votes = state_cells[1].text
     must_calculate_total = False
@@ -114,14 +140,21 @@ def build_state_data_from_state_row(state_row, candidate_index, prev_state_name)
 
     top_candidate = None
     top_percentage = 0
+    current_candidate_index = 0
+    i = 2
 
-    for i in range(0, len(candidate_index)):
-        candidate_name = candidate_index[i]["name"]
+    while i < len(state_cells) and current_candidate_index < len(candidate_index):
+        candidate_name = candidate_index[current_candidate_index]["name"]
+
+        colspan = get_colspan(state_cells[i])
 
         # each candidate spans 3 columns
-        vote_total_text = state_cells[3 * i + 2].text
-        vote_percentage_text = state_cells[3 * i + 3].text
-        electoral_vote_total_text = state_cells[3 * i + 4].text
+        vote_total_text = "0" if colspan > 1 else state_cells[i].text
+        vote_percentage_text = "0" if colspan > 1 else state_cells[i + 1].text
+        electoral_vote_total_text = "0" if colspan > 2 else state_cells[i + 3 - colspan].text
+
+        i += 4 - colspan
+        current_candidate_index += 1
 
         if must_calculate_total:
             total_electoral_votes += parse_int(electoral_vote_total_text)
@@ -130,6 +163,12 @@ def build_state_data_from_state_row(state_row, candidate_index, prev_state_name)
 
         vote_total = parse_int(vote_total_text)
         percentage = parse_percentage(vote_percentage_text)
+
+        # handle cases where there was no popular vote by just tallying one vote for the winner picked by the state
+        if vote_total == 0 and parse_int(electoral_vote_total_text) > 0:
+            vote_total = 1
+            percentage = 1
+
         if percentage > top_percentage:
             top_candidate = candidate_name
             top_percentage = percentage

@@ -10,7 +10,7 @@ def file_exists(path):
 
 
 def get_voting_data_path_for_year(year):
-    return "elect_tweaker/data/voting_data_" + year + ".json"
+    return "elect_tweaker/data/voting_data_" + str(year) + ".json"
 
 
 def load_saved_voting_data(year):
@@ -29,15 +29,32 @@ def persist_voting_data(voting_data, year):
         json.dump(voting_data, f)
 
 
+def load_saved_tweaker_results(year = None):
+    if not year:
+        path = "elect_tweaker/data/tweaker_results.json"
+
+        if not file_exists(path):
+            historical_data = {}
+        else:
+            # read the existing historical results
+            with open(path) as f:
+                historical_data = json.load(f)
+
+        return historical_data
+    else:
+        year = str(year)
+        historical_data = load_saved_tweaker_results()
+
+        if year not in historical_data:
+            return None
+
+        return historical_data[year]
+
+
 def persist_tweaker_results(voting_data, year):
     path = "elect_tweaker/data/tweaker_results.json"
-
-    if not file_exists(path):
-        historical_data = {}
-    else:
-        # read the existing historical results
-        with open(path) as f:
-            historical_data = json.load(f)
+    year = str(year)
+    historical_data = load_saved_tweaker_results()
 
     historical_data[year] = voting_data["candidates"]
 
