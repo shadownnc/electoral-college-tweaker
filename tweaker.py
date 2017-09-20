@@ -14,9 +14,9 @@ persist = True
 override_cache = False
 use_adjusted_google_sheet = False
 
-current_year = datetime.datetime.now().year
+end_year = datetime.datetime.now().year
 
-for year in range(start_year, current_year, 4):
+for year in range(start_year, end_year + 1, 4):
     voting_data = repository.load_saved_voting_data(year)
 
     if voting_data is None or override_cache:
@@ -36,7 +36,7 @@ for year in range(start_year, current_year, 4):
             repository.persist_voting_data(voting_data, year)
             print_message(year, "Saved voting data")
 
-        print(json.dumps(voting_data, indent=2, sort_keys=True))
+        # print(json.dumps(voting_data, indent=2, sort_keys=True))
     else:
         print_message(year, "Found cached voting data")
 
@@ -51,6 +51,6 @@ for year in range(start_year, current_year, 4):
             repository.persist_tweaker_results(voting_data, year)
             print_message(year, "Saved allocation results")
 
-        print(json.dumps(voting_data["candidates"], indent=2, sort_keys=True))
+        # print(json.dumps(voting_data["candidates"], indent=2, sort_keys=True))
     else:
         print_message(year, "Found cached allocation results")
