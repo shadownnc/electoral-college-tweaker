@@ -49,7 +49,11 @@ def build_candidate_index_from_state_table(state_table):
 
     for cell in candidate_cells:
         text = cell.text_content()
-        values = text.split("\n")
+
+        # had some trouble getting newlines in Google Sheets, using a special delimiter as a fallback
+        split_character = "--" if "--" in text else "\n"
+
+        values = text.split(split_character)
         values = list(filter(bool, values))
 
         candidate_index.append({
@@ -110,7 +114,7 @@ def build_state_data_from_state_row(state_row, candidate_index, prev_state_name)
         state_name = state_cells[0].text
 
     # if we didn't find anything, or it's the header, skip this row
-    if not state_name or state_name == "State":
+    if not state_name or state_name.lower() == "state":
         return None
 
     # normalize "Total" if we find it
@@ -257,6 +261,9 @@ def convert_adjusted_table_to_json_data(path):
     for row in rows:
         cells = row.getchildren()
         row.remove(cells[0])
+
+    # strip out the first row, which is column letter headers
+    rows[0].getparent().remove(rows[0])
 
     candidate_index = build_candidate_index_from_state_table(state_table)
     voting_data = build_voting_data_from_state_table(state_table, candidate_index)
