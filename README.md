@@ -7,6 +7,8 @@ Explore different scenarios of allocating electoral votes with historical data.
 * **data_output.py:** methods to print data in a spreadsheet format.
 * **tweaker.py:** main script to bring it all together.
 
+You can also view the [Google Sheet](https://docs.google.com/spreadsheets/d/1zsSVJHqwbWQbSdmC7vHewGqJtYN6k2-8SGmk42r8M6s/edit?usp=sharing) where the results for proportional allocation were first tested and analyzed.
+
 ## Winner Take All Discrepancies
 
 There are several instances where the actual results had a discrepancy with winner take all, generally on the margin. These are not represented in the data files, but are notated below:
