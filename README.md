@@ -1,9 +1,15 @@
 # electoral-college-tweaker
 Explore different scenarios of allocating electoral votes with historical data.
 
+* **elect_tweaker/data:** JSON data files of each election year with popular vote tallies and percentages by state.
+* **elect_tweaker/elect_data.py:** methods to parse HTML from Wikipedia and turn into JSON data.
+* **elect_tweaker/elect_tweaker.py:** methods to run heuristics on the data.
+* **data_output.py:** methods to print data in a spreadsheet format.
+* **tweaker.py:** main script to bring it all together.
+
 ## Winner Take All Discrepancies
 
-There are several instances where the data shows a discrepancy with winner take all, generally on the margin. These are not represented in the data files, but are notated below:
+There are several instances where the actual results had a discrepancy with winner take all, generally on the margin. These are not represented in the data files, but are notated below:
 
 * 1880:
   * CA: 1 electoral vote went to James Garfield.
